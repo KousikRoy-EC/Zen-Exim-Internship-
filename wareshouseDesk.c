@@ -6,6 +6,8 @@ void add_item(FILE *fptr);
 void update_item(FILE *fptr);
 void display_item(FILE *fptr);
 
+#define MAX_LENGTH 100
+
 int main()
 {
   FILE *fptr;
@@ -109,11 +111,11 @@ void update_item(FILE *fptr)
     exit(0);
   }
 
-  char Input_HSN[__INT_MAX__];
-  char DB_HSN_Code[__INT_MAX__];
-  char DB_Prod_desc[__INT_MAX__];
-  char DB_Quantity[__INT_MAX__];
-  char DB_Mrp[__INT_MAX__];
+  char Input_HSN[MAX_LENGTH];
+  char DB_HSN_Code[MAX_LENGTH];
+  char DB_Prod_desc[MAX_LENGTH];
+  char DB_Quantity[MAX_LENGTH];
+  char DB_Mrp[MAX_LENGTH];
   int new_quantity;
   float new_mrp;
 
@@ -134,7 +136,7 @@ void update_item(FILE *fptr)
     }
     else
     {
-      fprintf(tempFile, "%s %s %s %s \n", DB_HSN_Code, DB_Prod_desc, DB_Mrp, DB_Quantity);
+      fprintf(tempFile, "%s %s %s %s \n", DB_HSN_Code, DB_Prod_desc, DB_Quantity, DB_Mrp);
     }
   }
 
@@ -144,4 +146,3 @@ void update_item(FILE *fptr)
   remove("Data");
   rename("temp.txt", "Data");
 }
-
