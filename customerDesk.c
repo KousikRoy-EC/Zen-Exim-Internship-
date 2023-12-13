@@ -14,6 +14,7 @@ int main()
     int Quantity;
     int gen_bill, add_Item = 0;
     int prevBill = 0;
+    int found = 0;
 
     while (1)
     {
@@ -28,6 +29,7 @@ int main()
         printf("Name: ");
         scanf(" %[^\n]%*c", Cust_Name);
 
+    label:
         do
         {
             fptr = fopen("Data", "r");
@@ -53,10 +55,16 @@ int main()
                 if (strcmp(HSN_Code, DB_HSN_Code) == 0)
                 {
                     printf("Product Description: %s\n", DB_Prod_desc);
+                    found = 1;
                     break;
                 }
             }
 
+            if (!found)
+            {
+                printf("Invalid HSN code");
+                goto label;
+            }
             fseek(fptr, 0, SEEK_SET);
 
             printf("\nEnter Quantity: ");
@@ -76,9 +84,9 @@ int main()
             printf("\nDo you want to add more items?");
             scanf("%d", &add_Item);
 
-                } while (add_Item);
+        } while (add_Item);
 
-        printf("Generate Bill? (1 for Yes, 0 for No): ");
+        printf("Generate Bill?: ");
         scanf("%d", &gen_bill);
 
         if (gen_bill)
