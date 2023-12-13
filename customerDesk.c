@@ -1,106 +1,129 @@
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <string.h>
-// #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-// #define MAX_LENGTH 100
+#define MAX_LENGTH 100
 
-// int main()
-// {
-//     FILE *fptr;
-//     fptr = fopen("Data", "r");
+void updateQuantity(FILE *fptr, const char *tempFileName, const char *HSN_Code, int Quantity);
 
-//     char Cust_Name[10];
-//     char HSN_Code[MAX_LENGTH];
-//     char DB_HSN_Code[MAX_LENGTH];
-//     char DB_Prod_desc[MAX_LENGTH];
-//     char DB_Quantity[MAX_LENGTH];
-//     char DB_Mrp[MAX_LENGTH];
-//     int Quantity;
-//     int gen_bill, add_Item = 0;
-//     int prevBill = 0;
+int main()
+{
+    FILE *fptr;
+    char Cust_Name[10];
+    char HSN_Code[MAX_LENGTH];
+    int Quantity;
+    int gen_bill, add_Item = 0;
+    int prevBill = 0;
 
-//     while (1)
-//     {
-//         printf(" Name : ");
-//         scanf(" %[^\n]%*c", Cust_Name);
-//     addMoreItem:
-//         printf(" HSN CODE : ");
-//         scanf(" %[^\n]%*c", HSN_Code);
+    while (1)
+    {
+        fptr = fopen("Data", "r");
 
-//         fseek(fptr, 0, SEEK_SET);
-//         fflush(fptr);
+        if (fptr == NULL)
+        {
+            perror("Error opening file");
+            exit(1);
+        }
 
-//         while (fscanf(fptr, "%s %s %s %s", DB_HSN_Code, DB_Prod_desc, DB_Quantity, DB_Mrp) != EOF)
-//         {
-//             if (strcmp(HSN_Code, DB_HSN_Code) == 0)
-//             {
-//                 printf(" Product Description : %s", DB_Prod_desc);
-//                 break;
-//             }
-//         }
-//         fseek(fptr, 0, SEEK_SET);
-//         fflush(fptr);
+        printf("Name: ");
+        scanf(" %[^\n]%*c", Cust_Name);
 
-//         printf("\n Enter Quantity ");
-//         scanf("%d", &Quantity);
+        do
+        {
+            fptr = fopen("Data", "r");
 
-//         printf("\n %s %s %d %s \n", DB_HSN_Code, DB_Prod_desc, atoi(DB_Quantity) - Quantity, DB_Mrp);
+            if (fptr == NULL)
+            {
+                perror("Error opening file");
+                exit(1);
+            }
 
-//         if (Quantity > atoi(DB_Quantity))
-//         {
-//             printf("\n Sorry Item not available!!!");
-//         }
-//         else
-//         {
-//             FILE *tempFile = fopen("temp.txt", "w");
+            printf("HSN CODE: ");
+            scanf(" %[^\n]%*c", HSN_Code);
 
-//             if (tempFile == NULL)
-//             {
-//                 perror("Error opening temp file");
-//                 exit(0);
-//             }
+            char DB_HSN_Code[MAX_LENGTH];
+            char DB_Prod_desc[MAX_LENGTH];
+            char DB_Quantity[MAX_LENGTH];
+            char DB_Mrp[MAX_LENGTH];
 
-//             fseek(fptr, 0, SEEK_SET);
-//             fflush(fptr);
+            fseek(fptr, 0, SEEK_SET);
 
-//             while (fscanf(fptr, "%s %s %s %s", DB_HSN_Code, DB_Prod_desc, DB_Quantity, DB_Mrp) != EOF)
-//             {
-//                 if (strcmp(HSN_Code, DB_HSN_Code) == 0)
-//                 {
-//                     printf("%s %s %d %s \n", DB_HSN_Code, DB_Prod_desc, atoi(DB_Quantity) - Quantity, DB_Mrp);
-//                     fprintf(tempFile, "%s %s %d %s \n", DB_HSN_Code, DB_Prod_desc, atoi(DB_Quantity) - Quantity, DB_Mrp);
-//                 }
-//                 else
-//                 {
-//                     fprintf(tempFile, "%s %s %s %s \n", DB_HSN_Code, DB_Prod_desc, DB_Quantity, DB_Mrp);
-//                 }
-//             }
+            while (fscanf(fptr, "%s %s %s %s", DB_HSN_Code, DB_Prod_desc, DB_Quantity, DB_Mrp) != EOF)
+            {
+                if (strcmp(HSN_Code, DB_HSN_Code) == 0)
+                {
+                    printf("Product Description: %s\n", DB_Prod_desc);
+                    break;
+                }
+            }
 
-//             fseek(fptr, 0, SEEK_SET);
-//             fflush(fptr);
+            fseek(fptr, 0, SEEK_SET);
 
-//             fclose(fptr);
-//             fclose(tempFile);
+            printf("\nEnter Quantity: ");
+            scanf("%d", &Quantity);
 
-//             remove("Data");
-//             rename("temp.txt", "Data");
-//         }
+            if (Quantity > atoi(DB_Quantity))
+            {
+                printf("\n Sorry Item not available");
+                break;
+            }
+            else
+            {
+                updateQuantity(fptr, "temp.txt", HSN_Code, Quantity);
+            }
 
-//         printf("\n Do you want to add more item ?");
-//         scanf("%d", &add_Item);
+            prevBill += Quantity * atoi(DB_Mrp);
+            printf("\nDo you want to add more items?");
+            scanf("%d", &add_Item);
 
-//         if (add_Item)
-//         {
-//             add_Item = 0;
-//             goto addMoreItem;
-//         }
+                } while (add_Item);
 
-//         printf("Generate Bill ??? ");
-//         scanf("%d", &gen_bill);
-//         prevBill = prevBill + Quantity * atoi(DB_Mrp);
-//         printf("%s Your total Bill is : %d", Cust_Name, prevBill);
-//     }
+        printf("Generate Bill? (1 for Yes, 0 for No): ");
+        scanf("%d", &gen_bill);
 
-//     return 0;
-// }
+        if (gen_bill)
+            printf("%s, your total bill is: %d\n", Cust_Name, prevBill);
+        else
+            break;
+    }
+
+    fclose(fptr);
+
+    return 0;
+}
+
+void updateQuantity(FILE *fptr, const char *tempFileName, const char *HSN_Code, int Quantity)
+{
+    FILE *tempFile = fopen(tempFileName, "w");
+    if (tempFile == NULL)
+    {
+        perror("Error opening temp file");
+        exit(0);
+    }
+
+    char DB_HSN_Code[MAX_LENGTH];
+    char DB_Prod_desc[MAX_LENGTH];
+    char DB_Quantity[MAX_LENGTH];
+    char DB_Mrp[MAX_LENGTH];
+
+    fseek(fptr, 0, SEEK_SET);
+
+    while (fscanf(fptr, "%s %s %s %s", DB_HSN_Code, DB_Prod_desc, DB_Quantity, DB_Mrp) != EOF)
+    {
+        if (strcmp(HSN_Code, DB_HSN_Code) == 0)
+        {
+            fprintf(tempFile, "%s %s %d %s\n", DB_HSN_Code, DB_Prod_desc, atoi(DB_Quantity) - Quantity, DB_Mrp);
+        }
+        else
+        {
+            fprintf(tempFile, "%s %s %s %s\n", DB_HSN_Code, DB_Prod_desc, DB_Quantity, DB_Mrp);
+        }
+    }
+
+    fseek(fptr, 0, SEEK_SET);
+    fclose(fptr);
+    fclose(tempFile);
+
+    remove("Data");
+    rename(tempFileName, "Data");
+}
