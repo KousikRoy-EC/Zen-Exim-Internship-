@@ -6,7 +6,8 @@
 
 void updateQuantity(FILE *fptr, const char *tempFileName1, const char *tempFileName2, int *prevBill);
 void addItemToCart(const char *tempFileName, const char *HSN_Code, int Quantity);
-void billReport(int prevBill, const char *temp, const char *HSN_Code, int Quantity, const char *Cust_Name, const char *Prod_desc);
+void billReport(int prevBill, const char *temp, const char *Cust_Name);
+void salesReport(const char *salesbill);
 
 int main()
 {
@@ -50,6 +51,7 @@ int main()
             char DB_Prod_desc[MAX_LENGTH];
             char DB_Quantity[MAX_LENGTH];
             char DB_Mrp[MAX_LENGTH];
+            int changeQuantity, toExit = 0;
 
             fseek(fptr, 0, SEEK_SET);
 
@@ -71,14 +73,32 @@ int main()
             }
             fseek(fptr, 0, SEEK_SET);
 
+        label2:
             printf("\nEnter Quantity: ");
             scanf("%d", &Quantity);
+
+            printf("Do you want to change Quantity ? ");
+            scanf("%d", &changeQuantity);
+
+            if (changeQuantity)
+            {
+                goto label2;
+            }
+
+            printf("Exit ? ");
+            scanf("%d", &toExit);
+
+            if (toExit)
+            {
+                exit(0);
+            }
 
             if (Quantity > atoi(DB_Quantity))
             {
                 printf("\n Sorry Item not available");
                 break;
             }
+
             else
             {
                 addItemToCart("temp1.txt", HSN_Code, Quantity);
@@ -92,9 +112,9 @@ int main()
 
         if (gen_bill)
         {
+            salesReport("sales.txt");
             updateQuantity(fptr, "temp1.txt", "temp2.txt", &prevBill);
-            billReport(prevBill, "bill.txt", HSN_Code, Quantity, Cust_Name, Prod_desc);
-            salesReport("sales.txt", HSN_Code, Quantity, Cust_Name, Prod_desc);
+            billReport(prevBill, "bill.txt", Cust_Name);
         }
         else
         {
@@ -155,15 +175,12 @@ void updateQuantity(FILE *fptr, const char *tempFile1, const char *tempFile2, in
 
     while (fscanf(tempFileName1, "%s %s", UP_HSN_Code, UP_Quantity) != EOF)
     {
-        int found = 0;
-
         for (int i = 0; i < mainDataSize; i++)
         {
             if (strcmp(UP_HSN_Code, mainData[i].HSN_Code) == 0)
             {
                 fprintf(tempFileName2, "%s %s %d %s\n", mainData[i].HSN_Code, mainData[i].Prod_desc, atoi(mainData[i].Quantity) - atoi(UP_Quantity), mainData[i].Mrp);
                 *prevBill = *prevBill + atoi(mainData[i].Mrp) * atoi(UP_Quantity);
-                found = 1;
                 updatedFlag[i] = 1;
                 break;
             }
@@ -186,7 +203,7 @@ void updateQuantity(FILE *fptr, const char *tempFile1, const char *tempFile2, in
     rename("temp2.txt", "Data");
 }
 
-void billReport(int prevBill, const char *temp, const char *HSN_Code, int Quantity, const char *Cust_Name, const char *Prod_desc)
+void billReport(int prevBill, const char *temp, const char *Cust_Name)
 {
 
     FILE *billFile = fopen(temp, "a");
@@ -197,25 +214,72 @@ void billReport(int prevBill, const char *temp, const char *HSN_Code, int Quanti
         exit(0);
     }
 
-    fprintf(billFile, "------------------ \n Name : %s \n HSN Code :  %s \n Prod Desc : %s \n Quantity :  %d \n Total Bill : %d \n ------------------\n ", Cust_Name, HSN_Code, Prod_desc, Quantity, prevBill);
+    fprintf(billFile, "------------------ \n Name : %s  \n Total Bill : %d \n ------------------\n ", Cust_Name, prevBill);
 
     fflush(billFile);
     fclose(billFile);
 }
 
-
-void salesReport(const char *temp, const char *HSN_Code, int Quantity, const char *Cust_Name, const char *Prod_desc)
+void salesReport(const char *salesBill)
 {
-    FILE *salesReport = fopen(temp, "a");
+    FILE *salesReportBill = fopen(salesBill, "a+");
+    FILE *tempDB = fopen("temp1.txt", "r");
+    FILE *saleTemp = fopen("salesTemp.txt", "w");
 
-    if (salesReport == NULL)
+    char HSN_Code[MAX_LENGTH];
+    char Quantity[MAX_LENGTH];
+
+    struct
+    {
+        char HSN_Code[MAX_LENGTH];
+        char Quantity[MAX_LENGTH];
+    } mainData[MAX_LENGTH];
+
+    if (salesReportBill == NULL)
     {
         perror("Error opening temp file");
         exit(0);
     }
 
-    fprintf(salesReport, " %s - %s - %s - %s \n",HSN_Code,Cust_Name,Prod_desc,Quantity);
+    int mainDataSize = 0;
 
-    fflush(salesReport);
-    fclose(salesReport);
+    while (fscanf(salesReportBill, "%s %s", mainData[mainDataSize].HSN_Code, mainData[mainDataSize].Quantity) != EOF)
+    {
+        mainDataSize++;
+    }
+
+    while (fscanf(tempDB, "%s %s", HSN_Code, Quantity) != EOF)
+    {
+        int updated = 0;
+        for (int i = 0; i < mainDataSize; i++)
+        {
+            if (strcmp(HSN_Code, mainData[i].HSN_Code) == 0)
+            {
+                updated = 1;
+                fprintf(saleTemp, "%s %d \n", mainData[i].HSN_Code, atoi(Quantity) + atoi(mainData[i].Quantity));
+            }
+        }
+
+        if (!updated)
+        {
+            fprintf(saleTemp, "%s %d \n", HSN_Code, atoi(Quantity));
+        }
+    }
+
+    fseek(salesReportBill, 0, SEEK_SET);
+
+    while (fscanf(salesReportBill, "%s %s", HSN_Code, Quantity) != EOF)
+    {
+
+        fprintf(saleTemp, "%s %s\n", HSN_Code, Quantity);
+    }
+
+    fseek(tempDB, 0, SEEK_SET);
+    fflush(salesReportBill);
+    fclose(saleTemp);
+    fclose(tempDB);
+    fclose(salesReportBill);
+
+    remove(salesBill);
+    rename("salesTemp.txt", "sales.txt");
 }
