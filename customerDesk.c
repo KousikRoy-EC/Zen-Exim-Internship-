@@ -256,30 +256,27 @@ void salesReport(const char *salesBill)
             if (strcmp(HSN_Code, mainData[i].HSN_Code) == 0)
             {
                 updated = 1;
-                fprintf(saleTemp, "%s %d \n", mainData[i].HSN_Code, atoi(Quantity) + atoi(mainData[i].Quantity));
+                snprintf(mainData[i].Quantity, sizeof(mainData[i].Quantity), "%d", atoi(Quantity) + atoi(mainData[i].Quantity));
+                break;
             }
         }
 
         if (!updated)
         {
-            fprintf(saleTemp, "%s %d \n", HSN_Code, atoi(Quantity));
+            strcpy(mainData[mainDataSize].HSN_Code, HSN_Code);
+            strcpy(mainData[mainDataSize].Quantity, Quantity);
+            mainDataSize++;
         }
     }
 
-    fseek(salesReportBill, 0, SEEK_SET);
-
-    while (fscanf(salesReportBill, "%s %s", HSN_Code, Quantity) != EOF)
+    for (int i = 0; i < mainDataSize; i++)
     {
-
-        fprintf(saleTemp, "%s %s\n", HSN_Code, Quantity);
+        fprintf(saleTemp, "%s %s\n", mainData[i].HSN_Code, mainData[i].Quantity);
     }
-
-    fseek(tempDB, 0, SEEK_SET);
-    fflush(salesReportBill);
+    fclose(salesReportBill);
     fclose(saleTemp);
     fclose(tempDB);
-    fclose(salesReportBill);
 
-    remove(salesBill);
+    remove("sales.txt");
     rename("salesTemp.txt", "sales.txt");
 }
