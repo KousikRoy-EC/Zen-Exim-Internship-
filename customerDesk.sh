@@ -10,23 +10,19 @@ echo "$1 $2" >> "$temp_file"
 }
 
 salesReport(){
-local db="item.txt"
-local temp_file="temp_data.txt"
-local sales_file="salesReport.txt" 
 
-while IFS=" " read -r hsn new_qty; do
-    if grep -q "$hsn " "$sales_file"; then
-        result=$(grep "$hsn" "$sales_file")
-        up_quant=$(echo "$result" | awk -F' ' '{print $2}')
-        new_qty=$(expr $new_qty + $up_quant)
-        sed -i "/$hsn/ s/[^ ]*/$new_qty/" "$sales_file"
-    fi
-    echo "$hsn $new_qty" >> "$temp_file"
-done < "$db"
+    local db="item.txt"
+    local temp_file="temp_data.txt"
+    local sales_file="salesReport.txt"
 
- cat "$temp_file" >> "$sales_file"
-    rm "$temp_file"
-
+    while IFS=" " read -r hsn new_qty; do
+        if grep -q "$hsn" "$sales_file"; then
+            awk -v hsn="$hsn" -v new_qty="$new_qty" '$1 == hsn { $2 += new_qty }1' "$sales_file" > "$temp_file"
+            mv "$temp_file" "$sales_file"
+        else
+            echo "$hsn $new_qty" >> "$sales_file"
+        fi
+    done < "$db"
 }
 
 updateWarehouse(){
@@ -37,8 +33,8 @@ while IFS=" " read -r hsn prod_desc new_qty mrp; do
     if grep -q "$hsn " "$db"; then
         result=$(grep "$hsn" "$db")
         up_quant=$(echo "$result" | awk -F' ' '{print $2}')  
-        new_qty=$(expr $new_qty - $up_quant)
-        totalBill=$((mrp * up_quant + totalBill))
+        new_qty=$((new_qty - up_quant))
+        totalBill=$((totalBill + (mrp * up_quant)))
     fi
     echo "$hsn $prod_desc $new_qty $mrp" >> "$temp_file"
 done < "$file_name"
@@ -114,13 +110,11 @@ done
 echo "Generate Bill!"
 read bill
 
-if [ "$bill" -ne 0 ];
-    then
+if [ "$bill" -ne 0 ];then
     salesReport
     updateWarehouse
-    billReport $custName $totalBill
+    billReport "$custName" "$totalBill"
 else
-
 exit 0
 fi
 done
