@@ -1,0 +1,29 @@
+#!/bin/bash
+
+if [ "$#" -ne 4 ]; then
+    echo "Usage: $0 file1 file2 config temp"
+    exit 1
+fi
+
+file1="$1"
+file2="$2"
+config="$3"
+temp="$4"
+
+extract_params() {
+    awk '/^config wifi-iface/,/^$/' "$1" | grep -E '^\s*option\s+(ssid|ifname)\s' | sed 's/option\s//g' | awk '{print $2, $3}'
+}
+
+params_file1=$(extract_params "$file1" | tr -d "'" | tr -d "{}")
+params_file2=$(extract_params "$file2" | tr -d "'" | tr -d "{}")
+echo "$params_file2" >"$temp"
+
+if [ "$params_file1" = "$params_file2" ]; then
+    echo "no change"
+else
+    if diff -q <(sort "$temp") <(sort "$config") >/dev/null; then
+        echo "Changes not applied"
+    else
+        echo "Changes applied"
+    fi
+fi
