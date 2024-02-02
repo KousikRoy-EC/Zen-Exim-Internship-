@@ -85,6 +85,9 @@ get_iwpriv_value() {
     isolate)
         ebtables -t broute -L | grep "$interface" | grep -q "$wlan_name"_ISOLATE && echo "1" || echo "0"
         ;;
+    epdgVoip)
+        iptables -t mangle -nvL | grep -q "DSCP set 0x2e" && echo "1" || echo "0"
+        ;;
     qos_map_set | ieee80211w | ssid | disassoc_low_ack | rsn_preauth | ft_over_ds | r1_key_holder | ft_psk_generate_local | mobility_domain | pmk_r1_push | reassociation_deadline | wnm_sleep_mode | bss_transition)
         cat /var/run/hostapd-"$interface".conf | grep -w "$operation" | cut -d"=" -f2-
         ;;
@@ -280,6 +283,9 @@ process_config_option() {
     downloadRate_0 | downloadRate_1)
         operation="downloadRate"
         ;;
+    epdgVoip_0 | epdgVoip_1)
+        operation="epdgVoip"
+        ;;
     MSL_0 | MSL_1)
         operation="MSL"
         tempMslVal=$(iptables -t raw -nvL MAX_SESSION_LIMIT | grep -w -q "$intf" && echo "1" || echo "0")
@@ -424,9 +430,10 @@ compare_wireless_configs() {
     local macfilter_0=$(get_uci_value "$res_0" "macfilter")   #layer 2 acl
     local wmm_0=$(get_uci_value "$res_0" "wmm")
     local downloadRate_0=$(get_uci_value "$res_0" "download_rate")
-    local MSL_0=$(get_uci_value "$res_0" "MSL") #session control
+    local MSL_0=$(get_uci_value "$res_0" "MSL")            #session control
+    local epdgVoip_0=$(get_uci_value "$res_0" "epdg_voip") #wifi calling
 
-    echo -e "MSL_0 '$MSL_0'\ndownloadRate_0 '$downloadRate_0'\nwmm_0 '$wmm_0'\nmacfilter_0 '$macfilter_0'\nurlfilter_0 '$urlfilter_0'\nqosmapset_0 '$qosmapset_0'\nieee80211w_0 '$ieee80211w_0'\nbssRate_0 '$bssRate_0'\nmgmtRate_0 '$mgmtRate_0'\nvlan_0 '$vlan_0'\nencryption_0 '$encryption_0'\nSSID_0 '$SSID_0'\nproxyarp_0 '$proxyarp_0'\ndisassoclowack_0 '$disassoclowack_0'\nrsnpreauth_0 '$rsnpreauth_0'\nrts_0 '$rts_0'\nisolate_0 '$isolate_0'\nforceDhcp_0 '$forceDhcp_0'\nftoverds_0 '$ftoverds_0'\nr1keyholder_0 '$r1keyholder_0'\nftpskgeneratelocal_0 '$ftpskgeneratelocal_0'\nmobilitydomain_0 '$mobilitydomain_0'\npmkr1push_0 '$pmkr1push_0'\nreassociationdeadline_0 '$reassociationdeadline_0'\nwnmsleepmode_0 '$wnmsleepmode_0'\nbsstransition_0 '$bsstransition_0'\npureg_0 '$pureg_0'\nmcastenhance_0 '$mcastenhance_0'\ndtimPeriod_0 '$dtimPeriod_0'\nbroadcast_0 '$broadcast_0'\ndisabled_0 '$disabled_0'\nuapsd_0 '$uapsd_0'\nrrm_0 '$rrm_0'\nmaxassoc_0 '$maxassoc_0'" >"$file"
+    echo -e "epdgVoip_0 '$epdgVoip_0'\nMSL_0 '$MSL_0'\ndownloadRate_0 '$downloadRate_0'\nwmm_0 '$wmm_0'\nmacfilter_0 '$macfilter_0'\nurlfilter_0 '$urlfilter_0'\nqosmapset_0 '$qosmapset_0'\nieee80211w_0 '$ieee80211w_0'\nbssRate_0 '$bssRate_0'\nmgmtRate_0 '$mgmtRate_0'\nvlan_0 '$vlan_0'\nencryption_0 '$encryption_0'\nSSID_0 '$SSID_0'\nproxyarp_0 '$proxyarp_0'\ndisassoclowack_0 '$disassoclowack_0'\nrsnpreauth_0 '$rsnpreauth_0'\nrts_0 '$rts_0'\nisolate_0 '$isolate_0'\nforceDhcp_0 '$forceDhcp_0'\nftoverds_0 '$ftoverds_0'\nr1keyholder_0 '$r1keyholder_0'\nftpskgeneratelocal_0 '$ftpskgeneratelocal_0'\nmobilitydomain_0 '$mobilitydomain_0'\npmkr1push_0 '$pmkr1push_0'\nreassociationdeadline_0 '$reassociationdeadline_0'\nwnmsleepmode_0 '$wnmsleepmode_0'\nbsstransition_0 '$bsstransition_0'\npureg_0 '$pureg_0'\nmcastenhance_0 '$mcastenhance_0'\ndtimPeriod_0 '$dtimPeriod_0'\nbroadcast_0 '$broadcast_0'\ndisabled_0 '$disabled_0'\nuapsd_0 '$uapsd_0'\nrrm_0 '$rrm_0'\nmaxassoc_0 '$maxassoc_0'" >"$file"
 
     if [ "$res_0" != "$res_1" ]; then
         local SSID_1=$(get_uci_value "$res_1" "ssid")
@@ -463,8 +470,9 @@ compare_wireless_configs() {
         local wmm_1=$(get_uci_value "$res_1" "wmm")
         local downloadRate_1=$(get_uci_value "$res_1" "download_rate")
         local MSL_1=$(get_uci_value "$res_1" "MSL")
+        local epdgVoip_1=$(get_uci_value "$res_1" "epdg_voip")
 
-        echo -e "MSL_1 '$MSL_1'\ndownloadRate_1 '$downloadRate_1'\nwmm_1 '$wmm_1'\nmacfilter_1 '$macfilter_1'\nurlfilter_1 '$urlfilter_1'\nqosmapset_1 '$qosmapset_1'\nieee80211w_1 '$ieee80211w_1'\nbssRate_1 '$bssRate_1'\nmgmtRate_1 '$mgmtRate_1'\nvlan_1 '$vlan_1'\nencryption_1 '$encryption_1'\nSSID_1 '$SSID_1'\nproxyarp_1 '$proxyarp_1'\ndisassoclowack_1 '$disassoclowack_1'\nrsnpreauth_1 '$rsnpreauth_1'\nrts_1 '$rts_1'\nisolate_1 '$isolate_1'\nforceDhcp_1 '$forceDhcp_1'\nftoverds_1 '$ftoverds_1'\nr1keyholder_1 '$r1keyholder_1'\nftpskgeneratelocal_1 '$ftpskgeneratelocal_1'\nmobilitydomain_1 '$mobilitydomain_1'\npmkr1push_1 '$pmkr1push_1'\nreassociationdeadline_1 '$reassociationdeadline_1'\nwnmsleepmode_1 '$wnmsleepmode_1'\nbsstransition_1 '$bsstransition_1'\npureg_1 '$pureg_1'\nmcastenhance_1 '$mcastenhance_1'\ndtimPeriod_1 '$dtimPeriod_1'\nbroadcast_1 '$broadcast_1'\ndisabled_1 '$disabled_1'\nuapsd_1 '$uapsd_1'\nrrm_1 '$rrm_1'\nmaxassoc_1 '$maxassoc_1'" >>"$file"
+        echo -e "epdgVoip_1 '$epdgVoip_1'\nMSL_1 '$MSL_1'\ndownloadRate_1 '$downloadRate_1'\nwmm_1 '$wmm_1'\nmacfilter_1 '$macfilter_1'\nurlfilter_1 '$urlfilter_1'\nqosmapset_1 '$qosmapset_1'\nieee80211w_1 '$ieee80211w_1'\nbssRate_1 '$bssRate_1'\nmgmtRate_1 '$mgmtRate_1'\nvlan_1 '$vlan_1'\nencryption_1 '$encryption_1'\nSSID_1 '$SSID_1'\nproxyarp_1 '$proxyarp_1'\ndisassoclowack_1 '$disassoclowack_1'\nrsnpreauth_1 '$rsnpreauth_1'\nrts_1 '$rts_1'\nisolate_1 '$isolate_1'\nforceDhcp_1 '$forceDhcp_1'\nftoverds_1 '$ftoverds_1'\nr1keyholder_1 '$r1keyholder_1'\nftpskgeneratelocal_1 '$ftpskgeneratelocal_1'\nmobilitydomain_1 '$mobilitydomain_1'\npmkr1push_1 '$pmkr1push_1'\nreassociationdeadline_1 '$reassociationdeadline_1'\nwnmsleepmode_1 '$wnmsleepmode_1'\nbsstransition_1 '$bsstransition_1'\npureg_1 '$pureg_1'\nmcastenhance_1 '$mcastenhance_1'\ndtimPeriod_1 '$dtimPeriod_1'\nbroadcast_1 '$broadcast_1'\ndisabled_1 '$disabled_1'\nuapsd_1 '$uapsd_1'\nrrm_1 '$rrm_1'\nmaxassoc_1 '$maxassoc_1'" >>"$file"
     fi
     while IFS= read -r line1; do
         process_config_option "$line1" "$wlan_name"
