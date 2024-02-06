@@ -71,7 +71,7 @@ get_iwpriv_value() {
         esac
         ;;
     mcastenhance)
-        iwpriv "$interface" g_"$operation" | awk -F': ' '{print $2}'
+        iwpriv "$interface" g_"$operation" | awk -F':' '{print $2}'
         ;;
     downloadRate)
         tc filter show dev "$interface" | grep -i "rate" | awk '{print tolower($4)}'
@@ -121,8 +121,8 @@ check_and_print_changes() {
     local operation="$5"
     local ssid="$6"
 
-    # echo "$operation val1 : $val1 val2 : $val2" >>temp
-    if [ "$operation" = "vlan" ] && [ "$val1" != "$val2" ] || [ "$operation" = "ssid" ] && [ "$val1" != "$val2" ] || [ "$operation" = "r1_key_holder" ] && [ "$val1" != "$val2" ] || [ "$operation" = "mobility_domain" ] && [ "$val1" != "$val2" ]; then
+    echo "$operation -  $val1 $val2" >>tempRes
+    if [ "$operation" = "qos_map_set" ] && [ "$val1" != "$val2" ] || [ "$operation" = "downloadRate" ] && [ "$val1" != "$val2" ] || [ "$operation" = "vlan" ] && [ "$val1" != "$val2" ] || [ "$operation" = "ssid" ] && [ "$val1" != "$val2" ] || [ "$operation" = "r1_key_holder" ] && [ "$val1" != "$val2" ] || [ "$operation" = "mobility_domain" ] && [ "$val1" != "$val2" ]; then
         print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$val2"
     elif [ "$operation" != "maxsta" ] && [ "$val1" -ne "$val2" ]; then
         print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$val2"
@@ -242,7 +242,6 @@ process_config_option() {
     ieee80211w_0 | ieee80211w_1)
         operation="ieee80211w"
         ;;
-
     qosmapset_0 | qosmapset_1)
         operation="qos_map_set"
         ;;
@@ -311,7 +310,7 @@ process_config_option() {
         operation="MSL"
         tempMslVal=$(iptables -t raw -nvL MAX_SESSION_LIMIT | grep -w -q "$intf" && echo "1" || echo "0")
         if [ $tempMslVal -ne $val1 ]; then
-            echo "changes not applied : $ssid $wlan_name $intf $operation $val1 $tempMslVal"
+            print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$tempMslVal"
         fi
         return
         ;;
@@ -322,21 +321,21 @@ process_config_option() {
             local key2=$(cat /var/run/hostapd-$intf.conf | grep -w "wpa_passphrase" | cut -d"=" -f2-)
             local val2=$(cat /var/run/hostapd-$intf.conf | grep "wpa=" | cut -d"=" -f2)
             if [ "$key1" != "$key2" ] || [ "$val2" -ne 3 ]; then
-                echo "changes not applied : $ssid $wlan_name $intf $operation"
+                print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "psk2+aes" ] || [ "$val1" == "psk2+tkip+aes" ]; then
             local key1=$(get_uci_value "$res" "key")
             local key2=$(cat /var/run/hostapd-$intf.conf | grep -w "wpa_passphrase" | cut -d"=" -f2-)
             local val2=$(cat /var/run/hostapd-$intf.conf | grep "wpa=" | cut -d"=" -f2)
             if [ "$key1" != "$key2" ] || [ "$val2" -ne 2 ]; then
-                echo "changes not applied : $ssid $wlan_name $intf $operation"
+                print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "ccmp" ]; then
             local key1=$(get_uci_value "$res" "sae_password")
             local key2=$(cat /var/run/hostapd-$intf.conf | grep -w "sae_password" | cut -d"=" -f2-)
             local val2=$(cat /var/run/hostapd-$intf.conf | grep "wpa=" | cut -d"=" -f2)
             if [ "$key1" != "$key2" ] || [ "$val2" -ne 2 ]; then
-                echo "changes not applied : $ssid $wlan_name $intf $operation "
+                print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "psk2+ccmp" ]; then
             local key1=$(get_uci_value "$res" "sae_password")
@@ -345,26 +344,26 @@ process_config_option() {
             local key_2=$(cat /var/run/hostapd-$intf.conf | grep -w "wpa_passphrase" | cut -d"=" -f2-)
             local val2=$(cat /var/run/hostapd-$intf.conf | grep "wpa=" | cut -d"=" -f2)
             if [ "$key1" != "$key2" ] || [ "$key_1" != "$key_2" ] || [ "$val2" -ne 2 ]; then
-                echo "changes not applied : $ssid $wlan_name $intf $operation "
+                print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "wep" ]; then
             local key1=$(get_uci_value "$res" "key1")
             local key2=$(iwconfig $intf | grep -o 'Encryption key:[^ ]*' | cut -d ':' -f 2 | tr -d '-')
             local val2=$(cat /var/run/hostapd-$intf.conf | grep "wpa=" | cut -d"=" -f2)
             if [ "$key1" != "$key2" ] || [ "$val2" -ne 2 ]; then
-                echo "changes not applied : $ssid $wlan_name $intf $operation "
+                print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "none" ]; then
             local val2=$(cat /var/run/hostapd-$intf.conf | grep "wpa=" | cut -d"=" -f2)
             if [ "$val2" -ne 0 ]; then
-                echo "changes not applied : $ssid $wlan_name $intf $operation "
+                print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "psk" ]; then
             local key_1=$(get_uci_value "$res" "key")
             local key_2=$(cat /var/run/hostapd-$intf.conf | grep -w "wpa_passphrase" | cut -d"=" -f2-)
             local val2=$(cat /var/run/hostapd-$intf.conf | grep "wpa=" | cut -d"=" -f2)
             if [ "$key_1" != "$key_2" ] || [ "$val2" -ne 1 ]; then
-                echo "changes not applied : $ssid $wlan_name $intf $operation "
+                print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         fi
 
@@ -372,10 +371,11 @@ process_config_option() {
         ;;
 
     urlfilter_0 | urlfilter_1)
-        operation="URL_FILTER"
-        local tmpUrlFilter=$(iptables -t raw -nvL | grep "URL_FILTER_" | grep "$intf" | awk '{print $3}' | cut -d"_" -f2- | cut -d"_" -f2-)
-        if ! echo "$val1" | grep -q "$tmpUrlFilter"; then
-            echo "changes not applied : $ssid $wlan_name $intf $operation $val1 $tmpUrlFilter"
+        operation="url_filter"
+        [ "$val1" != "0" ] && val1="1"
+        val2=$(iptables -t raw -nvL | grep "URL_FILTER" | grep -v "APP_URL_FILTER" | grep -q "$intf" && echo "1" || echo "0")
+        if [ "$val1" -ne "$val2" ]; then
+            print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$val2"
         fi
         return
         ;;
@@ -384,16 +384,16 @@ process_config_option() {
         operation="maccmd"
         local tempVal2=$(iwpriv $intf get_$operation | awk -F':' '{print $2}')
         if [ "$val1" == "allow" ] && [ "$tempVal2" -eq 0 ] || [ "$val1" == "" ] && [ "$tempVal2" -eq 1 ]; then
-            echo "changes not applied : $ssid $wlan_name $intf $operation $val1 $tempVal2"
+            print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$tempVal2"
         fi
         return
         ;;
 
     rts_0 | rts_1)
         operation="rts"
-        rts_val=$(iwconfig | grep "RTS thr" | awk '{print $2}' | cut -d'=' -f2 | uniq)
-        if [ $rts_val -ne $val1 ]; then
-            echo "changes not applied : $ssid $wlan_name $intf $operation $val1 $rts_val"
+        rts_val=$(iwconfig $intf | grep "RTS thr" | awk '{print $2}' | cut -d'=' -f2 | cut -d":" -f2)
+        if [ $rts_val != $val1 ]; then
+            print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$rts_val"
         fi
         return
         ;;
@@ -401,7 +401,7 @@ process_config_option() {
         operation="disabled"
         disable=$(iwconfig | grep -w "$ssid" | grep -w -q "$intf" && echo "0" || echo "1")
         if [ $disable -ne $val1 ]; then
-            echo "changes not applied : $ssid $wlan_name $intf $operation $val1 $disable"
+            print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$disable"
         fi
         return
         ;;
@@ -418,15 +418,15 @@ compare_wireless_configs() {
     local res_0=$(uci show wireless | grep "$wlan_name" | head -n1 | cut -d '.' -f1-2)
     local res_1=$(uci show wireless | grep "$wlan_name" | tail -n1 | cut -d '.' -f1-2)
 
-    local SSID_0=$(get_uci_value "$res_0" "ssid")
-    local encryption_0=$(get_uci_value "$res_0" "encryption")
-    local disabled_0=$(get_uci_value "$res_0" "disabled")
-    local broadcast_0=$(get_uci_value "$res_0" "hidden")
-    local uapsd_0=$(get_uci_value "$res_0" "uapsd")
-    local rrm_0=$(get_uci_value "$res_0" "rrm") #err
+    local SSID_0=$(get_uci_value "$res_0" "ssid")             #ssid
+    local encryption_0=$(get_uci_value "$res_0" "encryption") #encryption
+    local disabled_0=$(get_uci_value "$res_0" "disabled")     #disable ssid
+    local broadcast_0=$(get_uci_value "$res_0" "hidden")      #broadcast
+    local uapsd_0=$(get_uci_value "$res_0" "uapsd")           #uapsd
+    local rrm_0=$(get_uci_value "$res_0" "rrm")
     local maxassoc_0=$(get_uci_value "$res_0" "maxassoc")
-    local pureg_0=$(get_uci_value "$res_0" "pureg")               #err
-    local mcastenhance_0=$(get_uci_value "$res_0" "mcastenhance") #err
+    local pureg_0=$(get_uci_value "$res_0" "pureg")
+    local mcastenhance_0=$(get_uci_value "$res_0" "mcastenhance")
     local dtimPeriod_0=$(get_uci_value "$res_0" "dtim_period")
     local ftoverds_0=$(get_uci_value "$res_0" "ft_over_ds")
     local r1keyholder_0=$(get_uci_value "$res_0" "r1_key_holder")
@@ -441,20 +441,20 @@ compare_wireless_configs() {
     local rts_0=$(get_uci_value "$res_0" "rts")              #rts
     local rsnpreauth_0=$(get_uci_value "$res_0" "rsn_preauth")
     local disassoclowack_0=$(get_uci_value "$res_0" "disassoc_low_ack")
-    local proxyarp_0=$(get_uci_value "$res_0" "proxyarp")     #proxy arp
-    local vlan_0=$(get_uci_value "$res_0" "network")          #vlan
-    local bssRate_0=$(get_uci_value "$res_0" "bss_rate")      #bss rate
-    local mgmtRate_0=$(get_uci_value "$res_0" "mgmt_rate")    #mgmt rate
-    local ieee80211w_0=$(get_uci_value "$res_0" "ieee80211w") #802.11w MFP
-    local qosmapset_0=$(get_uci_value "$res_0" "qos_map_set") #Qos
-    local urlfilter_0=$(get_uci_value "$res_0" "url_filter")  #url filtering
-    local macfilter_0=$(get_uci_value "$res_0" "macfilter")   #layer 2 acl
-    local wmm_0=$(get_uci_value "$res_0" "wmm")
-    local downloadRate_0=$(get_uci_value "$res_0" "download_rate")
-    local MSL_0=$(get_uci_value "$res_0" "MSL")              #session control
-    local epdgVoip_0=$(get_uci_value "$res_0" "epdg_voip")   #wifi calling
-    local diffserv_0=$(get_uci_value "$res_0" "diffserv_8")  #Diffserv
-    local appFilter_0=$(get_uci_value "$res_0" "app_filter") #app policing
+    local proxyarp_0=$(get_uci_value "$res_0" "proxyarp")          #proxy arp
+    local vlan_0=$(get_uci_value "$res_0" "network")               #vlan
+    local bssRate_0=$(get_uci_value "$res_0" "bss_rate")           #bss rate
+    local mgmtRate_0=$(get_uci_value "$res_0" "mgmt_rate")         #mgmt rate
+    local ieee80211w_0=$(get_uci_value "$res_0" "ieee80211w")      #802.11w MFP
+    local qosmapset_0=$(get_uci_value "$res_0" "qos_map_set")      #Qos
+    local urlfilter_0=$(get_uci_value "$res_0" "url_filter")       #url filtering
+    local macfilter_0=$(get_uci_value "$res_0" "macfilter")        #layer 2 acl
+    local wmm_0=$(get_uci_value "$res_0" "wmm")                    #wnm
+    local downloadRate_0=$(get_uci_value "$res_0" "download_rate") #rate limit
+    local MSL_0=$(get_uci_value "$res_0" "MSL")                    #session control
+    local epdgVoip_0=$(get_uci_value "$res_0" "epdg_voip")         #wifi calling
+    local diffserv_0=$(get_uci_value "$res_0" "diffserv_8")        #Diffserv
+    local appFilter_0=$(get_uci_value "$res_0" "app_filter")       #app policing
 
     echo -e "appFilter_0 '$appFilter_0'\ndiffserv_0 '$diffserv_0'\nepdgVoip_0 '$epdgVoip_0'\nMSL_0 '$MSL_0'\ndownloadRate_0 '$downloadRate_0'\nwmm_0 '$wmm_0'\nmacfilter_0 '$macfilter_0'\nurlfilter_0 '$urlfilter_0'\nqosmapset_0 '$qosmapset_0'\nieee80211w_0 '$ieee80211w_0'\nbssRate_0 '$bssRate_0'\nmgmtRate_0 '$mgmtRate_0'\nvlan_0 '$vlan_0'\nencryption_0 '$encryption_0'\nSSID_0 '$SSID_0'\nproxyarp_0 '$proxyarp_0'\ndisassoclowack_0 '$disassoclowack_0'\nrsnpreauth_0 '$rsnpreauth_0'\nrts_0 '$rts_0'\nisolate_0 '$isolate_0'\nforceDhcp_0 '$forceDhcp_0'\nftoverds_0 '$ftoverds_0'\nr1keyholder_0 '$r1keyholder_0'\nftpskgeneratelocal_0 '$ftpskgeneratelocal_0'\nmobilitydomain_0 '$mobilitydomain_0'\npmkr1push_0 '$pmkr1push_0'\nreassociationdeadline_0 '$reassociationdeadline_0'\nwnmsleepmode_0 '$wnmsleepmode_0'\nbsstransition_0 '$bsstransition_0'\npureg_0 '$pureg_0'\nmcastenhance_0 '$mcastenhance_0'\ndtimPeriod_0 '$dtimPeriod_0'\nbroadcast_0 '$broadcast_0'\ndisabled_0 '$disabled_0'\nuapsd_0 '$uapsd_0'\nrrm_0 '$rrm_0'\nmaxassoc_0 '$maxassoc_0'" >"$file"
 
