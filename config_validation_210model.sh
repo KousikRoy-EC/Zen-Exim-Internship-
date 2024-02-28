@@ -26,22 +26,22 @@ get_config_value() {
         iptables -t mangle -nvL | grep -q "DSCP set 0x2e" && echo "1" || echo "0"
         ;;
     diffserv)
-        tc filter show dev $interface | grep -q "filter" && echo "1" || echo "0"
+        tc filter show dev "$interface" | grep -q "filter" && echo "1" || echo "0"
         ;;
     vlan)
-        awk -v value="$interface" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-$radio.conf | grep -w "bridge" | cut -d"=" -f2 | cut -d"-" -f2
+        echo "$conf_file" | grep -w "bridge" | cut -d"=" -f2 | cut -d"-" -f2
         ;;
     qos_map_set | uapsd_advertisement_enabled | max_num_sta | ieee80211w | ssid | disassoc_low_ack | rsn_preauth | ft_over_ds | r1_key_holder | ft_psk_generate_local | mobility_domain | pmk_r1_push | reassociation_deadline | wnm_sleep_mode | bss_transition)
-        awk -v value="$interface" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-$radio.conf | grep -w "$operation" | cut -d"=" -f2-
+        echo "$conf_file" | grep -w "$operation" | cut -d"=" -f2-
         ;;
     hide_ssid)
         iw dev | grep -w -q "$interface" && echo "0" || echo "1"
         ;;
     dtim_period)
-        awk -v value="$interface" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-$radio.conf | grep -w "dtim_period" | cut -d"=" -f2-
+        echo "$conf_file" | grep -w "dtim_period" | cut -d"=" -f2-
         ;;
     *)
-        awk -v value="$interface" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-$radio.conf | grep -w "$operation" | cut -d"=" -f2-
+        echo "$conf_file" | grep -w "$operation" | cut -d"=" -f2-
         ;;
     esac
 }
@@ -101,6 +101,8 @@ process_config_option() {
     else
         local radio="phy1"
     fi
+
+    local conf_file=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' "/var/run/hostapd-$radio.conf")
 
     case "$tem" in
     SSID_0 | SSID_1)
@@ -184,46 +186,46 @@ process_config_option() {
         operation="encryption"
         if [ "$val1" == "psk-mixed+aes" ] || [ "$val1" == "psk-mixed+tkip+aes" ]; then
             local key1=$(get_uci_value "$res" "key")
-            local key2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep -w "wpa_passphrase" | cut -d"=" -f2-)
-            local val2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep "wpa=" | cut -d"=" -f2)
+            local key2=$(echo "$conf_file" | grep -w "wpa_passphrase" | cut -d"=" -f2-)
+            local val2=$(echo "$conf_file" | grep -w "wpa=" | cut -d"=" -f2-)
             if [ "$key1" != "$key2" ] || [ "$val2" -ne 3 ]; then
                 print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "psk2+aes" ] || [ "$val1" == "psk2+tkip+aes" ]; then
             local key1=$(get_uci_value "$res" "key")
-            local key2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep -w "wpa_passphrase" | cut -d"=" -f2-)
-            local val2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep "wpa=" | cut -d"=" -f2)
+            local key2=$(echo "$conf_file" | grep -w "wpa_passphrase" | cut -d"=" -f2-)
+            local val2=$(echo "$conf_file" | grep -w "wpa=" | cut -d"=" -f2-)
             if [ "$key1" != "$key2" ] || [ "$val2" -ne 2 ]; then
                 print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "wep" ]; then
             local key1=$(get_uci_value "$res" "key")
-            local key2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep "wep_key0" | cut -d"=" -f2-)
-            local val2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep "wpa=" | cut -d"=" -f2)
+            local key2=$(echo "$conf_file" | grep "wep_key0" | cut -d"=" -f2)
+            local val2=$(echo "$conf_file" | grep "wpa=" | cut -d"=" -f2)
             if [ "$key1" != "$key2" ] || [ "$val2" -ne 0 ]; then
                 print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "none" ]; then
-            local val2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep "wpa=" | cut -d"=" -f2)
+            local val2=$(echo "$conf_file" | grep "wpa=" | cut -d"=" -f2)
             if [ "$val2" -ne 0 ]; then
                 print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "sae" ]; then
             local key1=$(get_uci_value "$res" "sae_password")
-            local key2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep -w "sae_password" | cut -d"=" -f2-)
-            local val2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep "wpa=" | cut -d"=" -f2)
+            local key2=$(echo "$conf_file" | grep "sae_password" | cut -d"=" -f2)
+            local val2=$(echo "$conf_file" | grep "wpa=" | cut -d"=" -f2)
             if [ "$key1" != "$key2" ] || [ "$val2" -ne 2 ]; then
                 print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "owe" ]; then
-            local val2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep "wpa=" | cut -d"=" -f2)
+            local val2=$(echo "$conf_file" | grep "wpa=" | cut -d"=" -f2)
             if [ "$val2" -ne 2 ]; then
                 print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
         elif [ "$val1" == "psk" ] || [ "$val1" == "psk-sae" ]; then
             local key1=$(get_uci_value "$res" "key")
-            local key2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep -w "wpa_passphrase" | cut -d"=" -f2-)
-            local val2=$(awk -v value="$intf" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-"$radio".conf | grep "wpa=" | cut -d"=" -f2)
+            local key2=$(echo "$conf_file" | grep -w "wpa_passphrase" | cut -d"=" -f2-)
+            local val2=$(echo "$conf_file" | grep -w "wpa=" | cut -d"=" -f2-)
             if [ "$key1" != "$key2" ] || [ "$val2" -ne 1 ]; then
                 print_changes "$wlan_name" "$intf" "$operation" "$ssid" "" ""
             fi
@@ -241,7 +243,7 @@ process_config_option() {
         ;;
     macfilter_0 | macfilter_1)
         operation="macaddr_acl"
-        local tempVal2=$(awk -v value="$interface" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-$radio.conf | grep -w "$operation" | cut -d"=" -f2-)
+        local tempVal2=$(echo conf_file | grep -w "$operation" | cut -d"=" -f2-)
         if [ "$val1" == "allow" ] && [ "$tempVal2" -ne 1 ] || [ "$val1" == "" ] && [ "$tempVal2" -eq 1 ]; then
             print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$tempVal2"
         fi
@@ -249,7 +251,7 @@ process_config_option() {
         ;;
     rts_0 | rts_1)
         operation="rts_threshold"
-        rts_val=$(awk -v value="$interface" -v field="bss" '$1 == field"="value || $1 == "interface="value { if ($1 == field"="value) { print value; found=1 } else if ($1 == "interface="value) { print value; found=1 } } found==1 {print} found==1 && /^$/ {exit}' /var/run/hostapd-$radio.conf | grep -w "$operation" | cut -d"=" -f2-)
+        rts_val=$(echo conf_file | grep -w "$operation" | cut -d"=" -f2-)
         if [ $val1 = "off" ] && [ $rts_val != "off" ] || [ $rts_val != $val1 ]; then
             print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$rts_val"
         fi
@@ -267,6 +269,7 @@ process_config_option() {
         operation=$(echo "$tem" | cut -d"_" -f1)
         ;;
     esac
+
     val2=$(get_config_value "$intf" "$operation" "$wlan_name" "$radio")
     check_and_print_changes "$val1" "$val2" "$wlan_name" "$intf" "$operation" "$ssid"
 }
