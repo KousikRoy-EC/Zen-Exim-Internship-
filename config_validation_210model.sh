@@ -64,12 +64,11 @@ check_and_print_changes() {
     local operation="$5"
     local ssid="$6"
 
-    echo "$val1 $val2 $wlan_name $intf $operation $ssid" >>temp.txt
     if [ "$operation" = "qos_map_set" ] && [ "$val1" != "$val2" ] || [ "$operation" = "downloadRate" ] && [ "$val1" != "$val2" ] || [ "$operation" = "bridge" ] && [ "$val1" != "$val2" ] || [ "$operation" = "ssid" ] && [ "$val1" != "$val2" ] || [ "$operation" = "r1_key_holder" ] && [ "$val1" != "$val2" ] || [ "$operation" = "mobility_domain" ] && [ "$val1" != "$val2" ]; then
         print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$val2"
-    elif [ "$operation" != "maxsta" ] && [ "$val1" -ne "$val2" ]; then
+    elif [ "$operation" != "max_num_sta" ] && [ "$val1" != "$val2" ] || [ "$operation" != "max_num_sta" ] && [ "$val1" -ne "$val2" ]; then
         print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$val2"
-    elif [ "$operation" = "maxsta" ] && [ "$val1" -lt 128 ] && [ "$val1" -ne "$val2" ]; then
+    elif [ "$operation" = "max_num_sta" ] && [ "$val1" -lt 128 ] && [ "$val1" -ne "$val2" ]; then
         print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$val2"
     fi
 }
@@ -274,6 +273,62 @@ process_config_option() {
     check_and_print_changes "$val1" "$val2" "$wlan_name" "$intf" "$operation" "$ssid"
 }
 
+check_opennds_config() {
+    local line="$1"
+    local wlan_name="$2"
+    local res=$(uci show wireless | grep "$wlan_name" | head -n1 | cut -d '.' -f1-2)
+    local ssid=$(get_uci_value "$res" "ssid")
+    local param=$(echo "$line" | cut -d" " -f1)
+    local val1=$(echo "$line" | cut -d" " -f2- | tr -d "'")
+    local val2=""
+
+    case "$param" in
+    debuglevel | gatewayname | gatewayfqdn | maxclients | preauthidletimeout | checkinterval | ratecheckwindow | uploadquota | downloadquota | uploadrate | downloadrate | trafficcontrol | clientisolation | preauth | binauth | wispr_location_id | wispr_location_name | authidletimeout | sessiontimeout | uamsecret | walledgarden_fqdn_list | gatewayport)
+        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "$param" | cut -d" " -f2)
+        ;;
+    firewall_termination_enabled)
+        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "$param" | cut -d" " -f3-)
+        ;;
+    qn_fqdn)
+        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "walledgarden_fqdn_list" | cut -d" " -f2-)
+        ;;
+    walledgarden_port_list)
+        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "walledgarden_port_list" | cut -d" " -f2)
+        tempval2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "walledgarden_port_list" | cut -d" " -f3)
+        check_and_print_changes "$val1" "${val2} ${tempval2}" "$wlan_name" "" "$param" "$ssid"
+        return
+        ;;
+    gatewayinterface)
+        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "GatewayInterface" | cut -d" " -f2)
+        tempval2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "GatewayInterface" | cut -d" " -f3)
+        check_and_print_changes "$val1" "${val2} ${tempval2}" "$wlan_name" "" "$param" "$ssid"
+        return
+        ;;
+    radius_timeout | radius_retries | authserver | acctserver)
+        val2=$(cat /tmp/etc/opennds_radius_$wlan_name.conf | grep -w "$param" | cut -d" " -f2)
+        ;;
+    nasid)
+        val2=$(cat /tmp/etc/opennds_radius_$wlan_name.conf | grep -w "nas-identifier" | cut -d" " -f2)
+        ;;
+    enabled | fwhook_enabled)
+        val2=1
+        ;;
+    opennds)
+        val2="$wlan_name"
+        ;;
+    authenticated_users)
+        cat /tmp/etc/opennds_$wlan_name.conf | grep -w -q "FirewallRule allow all" && val2="allow all"
+        ;;
+    users_to_router | users_to_brouter | brouter_to_users | trusted-users | trusted-users-to-router)
+        param=$(echo "$param" | sed 's/_/-/g')
+        awk "/^FirewallRuleSet $param/,/^}/" /tmp/etc/opennds_$wlan_name.conf | grep -w "$val1" >/dev/null && val2="$val1"
+        ;;
+    *)
+        ;;
+    esac
+    check_and_print_changes "$val1" "$val2" "$wlan_name" "-" "$param" "$ssid"
+}
+
 compare_wireless_configs() {
     local wlan_name="$1"
     local res_0=$(uci show wireless | grep "$wlan_name" | head -n1 | cut -d '.' -f1-2)
@@ -340,6 +395,18 @@ compare_wireless_configs() {
 
         echo -e "uapsd_1 '$uapsd_1'\nappFilter_1 '$appFilter_1'\ndiffserv_1 '$diffserv_1'\nepdgVoip_1 '$epdgVoip_1'\nMSL_1 '$MSL_1'\ndownloadRate_1 '$downloadRate_1'\nmacfilter_1 '$macfilter_1'\nurlfilter_1 '$urlfilter_1'\nqosmapset_1 '$qosmapset_1'\nieee80211w_1 '$ieee80211w_1'\nvlan_1 '$vlan_1'\nencryption_1 '$encryption_1'\nSSID_1 '$SSID_1'\ndisassoclowack_1 '$disassoclowack_1'\nrsnpreauth_1 '$rsnpreauth_1'\nrts_1 '$rts_1'\nisolate_1 '$isolate_1'\nforceDhcp_1 '$forceDhcp_1'\nftoverds_1 '$ftoverds_1'\nr1keyholder_1 '$r1keyholder_1'\nftpskgeneratelocal_1 '$ftpskgeneratelocal_1'\nmobilitydomain_1 '$mobilitydomain_1'\npmkr1push_1 '$pmkr1push_1'\nreassociationdeadline_1 '$reassociationdeadline_1'\nwnmsleepmode_1 '$wnmsleepmode_1'\nbsstransition_1 '$bsstransition_1'\ndtimPeriod_1 '$dtimPeriod_1'\nbroadcast_1 '$broadcast_1'\ndisabled_1 '$disabled_1'\nmaxassoc_1 '$maxassoc_1'" >>"$file"
     fi
+
+    local hs_1=$(get_uci_value "$res_1" "hs")
+    local hs_0=$(get_uci_value "$res_0" "hs")
+
+    if [ "$hs_0" -eq 1 ] || [ "$hs_1" -eq 1 ]; then
+        cat /etc/config/opennds | cut -d" " -f2- >>"$opnendsFile"
+        while IFS= read -r line1; do
+            check_opennds_config "$line1" "$wlan_name"
+        done <"$opnendsFile" >>"result"
+        rm -f "$opnendsFile"
+    fi
+
     while IFS= read -r line1; do
         process_config_option "$line1" "$wlan_name"
     done <"$file" >>"result"
@@ -348,6 +415,7 @@ compare_wireless_configs() {
 
 fetchAllSSID() {
     local file="data"
+    local opnendsFile="openndsFile"
     rm -f result
     SSID_list=$(uci show wireless | grep -w "name" | cut -d"=" -f2 | cut -d"_" -f1 | cut -d"'" -f2- | uniq)
     for wlan_name in $SSID_list; do
