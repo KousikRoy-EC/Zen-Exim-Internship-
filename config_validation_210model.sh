@@ -64,7 +64,12 @@ check_and_print_changes() {
     local operation="$5"
     local ssid="$6"
 
-    if [ "$operation" = "qos_map_set" ] && [ "$val1" != "$val2" ] || [ "$operation" = "downloadRate" ] && [ "$val1" != "$val2" ] || [ "$operation" = "bridge" ] && [ "$val1" != "$val2" ] || [ "$operation" = "ssid" ] && [ "$val1" != "$val2" ] || [ "$operation" = "r1_key_holder" ] && [ "$val1" != "$val2" ] || [ "$operation" = "mobility_domain" ] && [ "$val1" != "$val2" ]; then
+    echo "$val1 $val2 $operation" >>tempResult
+    if ([ "$operation" = "users_to_router" ] || [ "$operation" = "users_to_brouter" ] || [ "$operation" = "brouter_to_users" ] || [ "$operation" = "trusted-users" ] || [ "$operation" = "trusted-users-to-router" ]) && [ "$val1" != "$val2" ]; then
+        print_changes "$wlan_name" "$operation" "$ssid" "$val1" "$val2"
+    elif ([ "$operation" = "qos_map_set" ] || [ "$operation" = "downloadRate" ] || [ "$operation" = "bridge" ] || [ "$operation" = "ssid" ] || [ "$operation" = "r1_key_holder" ] || [ "$operation" = "mobility_domain" ]) && [ "$val1" != "$val2" ]; then
+        print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$val2"
+    elif ([ "$operation" = "walledgarden_port_list" ] || [ "$operation" = "gatewayname" ] || [ "$operation" = "gatewayfqdn" ] || [ "$operation" = "preauth" ] || [ "$operation" = "binauth" ] || [ "$operation" = "authenticated_users" ] || [ "$operation" = "authserver" ] || [ "$operation" = "acctserver" ] || [ "$operation" = "wispr_location_id" ] || [ "$operation" = "wispr_location_name" ] || [ "$operation" = "qn_fqdn" ] || [ "$operation" = "qn_path" ] || [ "$operation" = "uamsecret" ] || [ "$operation" = "nasid" ] || [ "$operation" = "walledgarden_fqdn_list" ] || [ "$operation" = "gatewayinterface" ]) && [ "$val1" != "$val2" ]; then
         print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$val2"
     elif [ "$operation" != "max_num_sta" ] && [ "$val1" != "$val2" ] || [ "$operation" != "max_num_sta" ] && [ "$val1" -ne "$val2" ]; then
         print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$val2"
@@ -293,6 +298,7 @@ check_opennds_config() {
         val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "walledgarden_fqdn_list" | cut -d" " -f2-)
         ;;
     walledgarden_port_list)
+        val1=$(uci show opennds | grep "$wlan_name.walledgarden_port_list" | cut -d"=" -f2 | sed "s/'//g")
         val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "walledgarden_port_list" | cut -d" " -f2)
         tempval2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "walledgarden_port_list" | cut -d" " -f3)
         check_and_print_changes "$val1" "${val2} ${tempval2}" "$wlan_name" "" "$param" "$ssid"
@@ -324,6 +330,7 @@ check_opennds_config() {
         awk "/^FirewallRuleSet $param/,/^}/" /tmp/etc/opennds_$wlan_name.conf | grep -w "$val1" >/dev/null && val2="$val1"
         ;;
     *)
+        return
         ;;
     esac
     check_and_print_changes "$val1" "$val2" "$wlan_name" "-" "$param" "$ssid"
@@ -400,7 +407,7 @@ compare_wireless_configs() {
     local hs_0=$(get_uci_value "$res_0" "hs")
 
     if [ "$hs_0" -eq 1 ] || [ "$hs_1" -eq 1 ]; then
-        cat /etc/config/opennds | cut -d" " -f2- >>"$opnendsFile"
+        awk '/config opennds '\'"$wlan_name"\''/,/^$|^config opennds/ && !/^config opennds '\'"$wlan_name"\''/' /etc/config/opennds | cut -d" " -f2- >>"$opnendsFile"
         while IFS= read -r line1; do
             check_opennds_config "$line1" "$wlan_name"
         done <"$opnendsFile" >>"result"
@@ -419,7 +426,7 @@ fetchAllSSID() {
     rm -f result
     SSID_list=$(uci show wireless | grep -w "name" | cut -d"=" -f2 | cut -d"_" -f1 | cut -d"'" -f2- | uniq)
     for wlan_name in $SSID_list; do
-        sleep 1s && compare_wireless_configs "$wlan_name"
+        compare_wireless_configs "$wlan_name"
     done
 }
 
