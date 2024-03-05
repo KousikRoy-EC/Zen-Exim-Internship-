@@ -395,7 +395,7 @@ process_config_option() {
         ;;
     disabled_0 | disabled_1)
         operation="disabled"
-        disable=$(iwconfig | grep -w "$ssid" | grep -w -q "$intf" && echo "0" || echo "1")
+        disable=$(iwconfig | grep -w "$ssid" | grep -w -q "$intf" && echo "0" || echo "1") #no need to comp intf
         if [ $disable -ne $val1 ]; then
             print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$disable"
         fi
@@ -413,6 +413,8 @@ check_opennds_config() {
     local line="$1"
     local wlan_name="$2"
     local res=$(uci show wireless | grep "$wlan_name" | head -n1 | cut -d '.' -f1-2)
+    local opennds_config=$(cat /tmp/etc/opennds_$wlan_name.conf)
+    local radius_config=$(cat /tmp/etc/opennds_radius_$wlan_name.conf)
     local ssid=$(get_uci_value "$res" "ssid")
     local param=$(echo "$line" | cut -d" " -f1)
     local val1=$(echo "$line" | cut -d" " -f2- | tr -d "'")
@@ -420,33 +422,33 @@ check_opennds_config() {
 
     case "$param" in
     debuglevel | gatewayname | gatewayfqdn | maxclients | preauthidletimeout | checkinterval | ratecheckwindow | uploadquota | downloadquota | uploadrate | downloadrate | trafficcontrol | clientisolation | preauth | binauth | authidletimeout | sessiontimeout | uamsecret | walledgarden_fqdn_list | gatewayport)
-        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "$param" | cut -d" " -f2)
+        val2=$(echo "$opennds_config" | grep -w "$param" | cut -d" " -f2)
         ;;
     firewall_termination_enabled)
-        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "$param" | cut -d" " -f3-)
+        val2=$(echo "$opennds_config" | grep -w "$param" | cut -d" " -f3-)
         ;;
     qn_fqdn)
-        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "walledgarden_fqdn_list" | cut -d" " -f2-)
+        val2=$(echo "$opennds_config" | grep -w "walledgarden_fqdn_list" | cut -d" " -f2-)
         ;;
     walledgarden_port_list)
         val1=$(uci show opennds | grep "$wlan_name.walledgarden_port_list" | cut -d"=" -f2 | sed "s/'//g")
-        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "walledgarden_port_list" | cut -d" " -f2)
-        tempval2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "walledgarden_port_list" | cut -d" " -f3)
+        val2=$(echo "$opennds_config" | grep -w "walledgarden_port_list" | cut -d" " -f2)
+        tempval2=$(echo "$opennds_config" | grep -w "walledgarden_port_list" | cut -d" " -f3)
         check_and_print_changes "$val1" "${val2} ${tempval2}" "$wlan_name" "" "$param" "$ssid"
         return
         ;;
     gatewayinterface)
         val1=$(uci show opennds | grep "$wlan_name.gatewayinterface" | cut -d"=" -f2 | sed "s/'//g")
-        val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "GatewayInterface" | cut -d" " -f2)
-        tempval2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "GatewayInterface" | cut -d" " -f3)
+        val2=$(echo "$opennds_config" | grep -w "GatewayInterface" | cut -d" " -f2)
+        tempval2=$(echo "$opennds_config" | grep -w "GatewayInterface" | cut -d" " -f3)
         check_and_print_changes "$val1" "${val2} ${tempval2}" "$wlan_name" "" "$param" "$ssid"
         return
         ;;
     radius_timeout | radius_retries | authserver | acctserver)
-        val2=$(cat /tmp/etc/opennds_radius_$wlan_name.conf | grep -w "$param" | cut -d" " -f2)
+        val2=$(echo "$radius_config" | grep -w "$param" | cut -d" " -f2)
         ;;
     nasid)
-        val2=$(cat /tmp/etc/opennds_radius_$wlan_name.conf | grep -w "nas-identifier" | cut -d" " -f2)
+        val2=$(echo "$radius_config" | grep -w "nas-identifier" | cut -d" " -f2)
         ;;
     enabled)
         val2=1
@@ -455,7 +457,7 @@ check_opennds_config() {
         val2="$wlan_name"
         ;;
     authenticated_users)
-        cat /tmp/etc/opennds_$wlan_name.conf | grep -w -q "FirewallRule allow all" && val2="allow all"
+        echo "$opennds_config" | grep -w -q "FirewallRule allow all" && val2="allow all"
         ;;
     users_to_router | users_to_brouter | brouter_to_users | trusted-users | trusted-users-to-router)
         param=$(echo "$param" | sed 's/_/-/g')
