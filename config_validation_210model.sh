@@ -305,6 +305,7 @@ check_opennds_config() {
         return
         ;;
     gatewayinterface)
+        val1=$(uci show opennds | grep "$wlan_name.gatewayinterface" | cut -d"=" -f2 | sed "s/'//g")
         val2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "GatewayInterface" | cut -d" " -f2)
         tempval2=$(cat /tmp/etc/opennds_$wlan_name.conf | grep -w "GatewayInterface" | cut -d" " -f3)
         check_and_print_changes "$val1" "${val2} ${tempval2}" "$wlan_name" "" "$param" "$ssid"
@@ -315,15 +316,6 @@ check_opennds_config() {
         ;;
     nasid)
         val2=$(cat /tmp/etc/opennds_radius_$wlan_name.conf | grep -w "nas-identifier" | cut -d" " -f2)
-        ;;
-    enabled | fwhook_enabled)
-        val2=1
-        ;;
-    opennds)
-        val2="$wlan_name"
-        ;;
-    authenticated_users)
-        cat /tmp/etc/opennds_$wlan_name.conf | grep -w -q "FirewallRule allow all" && val2="allow all"
         ;;
     users_to_router | users_to_brouter | brouter_to_users | trusted-users | trusted-users-to-router)
         param=$(echo "$param" | sed 's/_/-/g')
