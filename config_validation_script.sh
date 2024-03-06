@@ -388,14 +388,14 @@ process_config_option() {
     rts_0 | rts_1)
         operation="rts"
         rts_val=$(iwconfig $intf | grep "RTS thr" | awk '{print $2}' | cut -d'=' -f2 | cut -d":" -f2)
-        if [ $val1 = "off" ] && [ $rts_val != "off" ] || [ $rts_val != $val1 ]; then #err
+        if [ $val1 = "off" ] && [ $rts_val != "off" ] || [ $rts_val != $val1 ]; then
             print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$rts_val"
         fi
         return
         ;;
     disabled_0 | disabled_1)
         operation="disabled"
-        disable=$(iwconfig | grep -w "$ssid" | grep -w -q "$intf" && echo "0" || echo "1") #no need to comp intf
+        disable=$(iwconfig | grep -w "$ssid" | grep -w -q "$intf" && echo "0" || echo "1")
         if [ $disable -ne $val1 ]; then
             print_changes "$wlan_name" "$intf" "$operation" "$ssid" "$val1" "$disable"
         fi
@@ -457,7 +457,7 @@ check_opennds_config() {
         val2="$wlan_name"
         ;;
     authenticated_users)
-        echo "$opennds_config" | grep -w -q "FirewallRule allow all" && val2="allow all"
+        val2="allow all"
         ;;
     users_to_router | users_to_brouter | brouter_to_users | trusted-users | trusted-users-to-router)
         param=$(echo "$param" | sed 's/_/-/g')
